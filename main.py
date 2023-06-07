@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
 
-from lib.delineation import ppg_pulse_detection
+from lib.delineation import ppg_pulse_detection, gap_correction
 from lib.filters import filtering_and_normalization, remove_impulse_artifacts
 from lib.hrv import time_metrics
 
@@ -25,8 +25,8 @@ if __name__ == '__main__':
     ppg_filtered = remove_impulse_artifacts(ppg_filtered)
 
     # Pulse detection
-    ppg_tk = ppg_pulse_detection(ppg_filtered, fs, plotflag=True)
+    ppg_tk = ppg_pulse_detection(ppg_filtered, fs, plotflag=False)
 
     # HRV
     time_metrics(ppg_tk)
-    # ppg_tn = gap_corrector(ppg_tk, True) Developing...
+    ppg_tn = gap_correction(ppg_tk, True)

@@ -200,37 +200,41 @@ def adaptive_thresholding(sig_filt, sig_fs, alfa, refract, tao_rr, thr_incidence
 
 def nfillgap(tk, gaps, current_gap, nfill):
     dtk = np.diff(tk)
-    gaps[gaps == current_gap] = []
+    gaps = np.delete(gaps, np.where(gaps == current_gap))
     dtk[gaps] = np.nan
     gap = dtk[current_gap]
-    previousIntervals = dtk[np.amax([0, current_gap - 21]):(current_gap - 1)]
-    posteriorIntervals = dtk[(current_gap+1):np.amin([(dtk.size-1), (current_gap + 20)])]
+    previousIntervals = dtk[np.amax([0, (current_gap - 20)]):current_gap]
+    posteriorIntervals = dtk[(current_gap+1):np.amin([dtk.size, (current_gap + 21)])]
     npre = previousIntervals.size
     npos = posteriorIntervals.size
 
-    pi = PchipInterpolator(np.concatenate([np.arange(0, (npre-1)), np.arange((nfill+npre+1), nfill+npre+npos)]),
+    pi = PchipInterpolator(np.concatenate([np.arange(0, npre), np.arange((nfill+npre+1), nfill+npre+npos+1)]),
                            np.concatenate([previousIntervals, posteriorIntervals]))
-    intervals = pi(np.arange(npre, npre+nfill))
+    intervals = pi(np.arange(npre, npre+nfill+1))
     intervals = intervals[0:-1] * gap / np.nansum(intervals)  # map intervals to gap
-    return np.concatenate([tk[0:current_gap-1], tk[current_gap-1] + np.cumsum(intervals), tk[current_gap:-1]])
+    return np.concatenate([tk[0:current_gap+1], tk[current_gap] + np.cumsum(intervals), tk[current_gap+1:]])
 
 
 def debugplots(ax, dtn, gap, upper_threshold, lower_threshold, nfill, correct):
     ax.cla()
     ax.stem(dtn)
     if correct:
-        ax.stem(np.arange(gap, gap+nfill), dtn[np.arange(gap, gap+nfill)], 'g', 'LineWidth', 1)
+        ax.stem(np.arange(gap, gap+nfill+1), dtn[np.arange(gap, gap+nfill+1)], 'g')
     else:
-        ax.stem(np.arange(gap, gap+nfill), dtn[np.arange(gap, gap+nfill)], 'r', 'LineWidth', 1)
-    ax.ylabel('Corrected RR [s]')
-    ax.xlabel('Samples')
+        ax.stem(np.arange(gap, gap+nfill+1), dtn[np.arange(gap, gap+nfill+1)], 'r')
+    ax.set(ylabel='Corrected RR [s]')
+    ax.set(xlabel='Samples')
     ax.axhline(upper_threshold, color='k')
     ax.axhline(lower_threshold, color='k')
-    plt.show()
-    input()
+    plt.pause(0.5)
+    plt.show(block=False)
 
 
-def gap_corrector(tk, debug):
+def gap_correction(tk, debug):
+    f = []
+    ax1 = []
+    ax2 = []
+
     # Threshold multipliers for upper and lower thresholds
     kupper = 1.5
     kupper_fine = 1 / kupper * 1.15
@@ -275,7 +279,7 @@ def gap_corrector(tk, debug):
         f, [ax1, ax2] = plt.subplots(2, 1)
 
     nfill = 1  # Start filling with one sample
-    while not gaps:
+    while gaps:
         # In each iteration, try to fill with one more sample
         for kk in range(0, gaps.size):
             if kk == 0 & debug:
@@ -283,21 +287,21 @@ def gap_corrector(tk, debug):
                 ax1.stem(dtn)
                 ax1.stem(gaps, dtn[gaps], 'r')
                 ax1.plot(threshold * kupper, 'k--')
-                ax1.ylabel('Original RR [s]')
+                ax1.set(ylabel='Original RR [s]')
 
-            auxtn = nfillgap(tn, gaps, gaps(kk), nfill)
+            auxtn = nfillgap(tn, gaps, gaps[kk], nfill)
             auxdtn = np.diff(auxtn)
 
-            correct = auxdtn[gaps[kk]:gaps[kk] + nfill] < kupper_fine * threshold_at_gap[kk]
-            limit_exceeded = auxdtn[gaps[kk]:(gaps[kk]+nfill+1)] < klower * threshold_at_gap[kk] | \
-                auxdtn[gaps[kk]:(gaps[kk]+nfill+1)] < 0.5
+            correct = np.all(auxdtn[gaps[kk]:(gaps[kk]+nfill+1)] < kupper_fine * threshold_at_gap[kk])
+            limit_exceeded = np.any([auxdtn[gaps[kk]:(gaps[kk]+nfill+1)] < klower * threshold_at_gap[kk],
+                                     auxdtn[gaps[kk]:(gaps[kk]+nfill+1)] < 0.5])
 
             if debug:
                 if limit_exceeded:
-                    debugplots(ax2, auxdtn, gaps(kk), kupper_fine * threshold_at_gap[kk], klower * threshold_at_gap[kk],
+                    debugplots(ax2, auxdtn, gaps[kk], kupper_fine * threshold_at_gap[kk], klower * threshold_at_gap[kk],
                                nfill, False)
                 else:
-                    debugplots(ax2, auxdtn, gaps(kk), kupper_fine * threshold_at_gap[kk], klower * threshold_at_gap[kk],
+                    debugplots(ax2, auxdtn, gaps[kk], kupper_fine * threshold_at_gap[kk], klower * threshold_at_gap[kk],
                                nfill, correct)
 
             if limit_exceeded:
@@ -317,7 +321,7 @@ def gap_corrector(tk, debug):
         # Compute gaps for next iteration
         dtn = np.diff(tn)
         threshold = compute_threshold(dtn)
-        gaps = np.where(dtn > threshold * kupper & dtn > 0.5)[0]
+        gaps = np.where((dtn > (threshold * kupper)) & (dtn > 0.5))[0]
         threshold_at_gap = threshold[gaps] * kupper
         nfill = nfill + 1
 
