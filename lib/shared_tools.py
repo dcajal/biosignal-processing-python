@@ -4,10 +4,12 @@ from scipy import signal
 
 
 def compute_threshold(rr):
-    wind = 30
+    wind = 29
     if rr.size < wind:
         wind = rr.size
-    mf = signal.medfilt(np.concatenate((np.flipud(rr[0:wind // 2]), rr, np.flipud(rr[-(wind // 2):])))[:], wind - 1)
+        if (wind % 2) != 1:
+            wind = wind - 1
+    mf = signal.medfilt(np.concatenate((np.flipud(rr[0:wind // 2]), rr, np.flipud(rr[-(wind // 2):])))[:], wind)
     mf[mf > 1.5] = 1.5
     return mf[(wind // 2):-(wind // 2)]
 

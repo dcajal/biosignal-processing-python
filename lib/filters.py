@@ -2,6 +2,7 @@ import numpy as np
 from scipy import signal
 
 
+# noinspection PyTupleAssignmentBalance
 def filtering_and_normalization(sig, sig_fs):
     b, a = signal.butter(3, 0.3, btype='highpass', fs=sig_fs)
     sig_filtered = signal.filtfilt(b, a, sig)
@@ -22,10 +23,12 @@ def remove_impulse_artifacts(sig):
     aux = np.append(aux, aux[-1])
 
     # Median filter threshold
-    wind = 1000
+    wind = 999
     if aux.size < wind:
         wind = aux.size
-    mf = signal.medfilt(aux, wind - 1)
+        if (wind % 2) != 1:
+            wind = wind - 1
+    mf = signal.medfilt(aux, wind)
 
     # Find impulses
     margin = 20
