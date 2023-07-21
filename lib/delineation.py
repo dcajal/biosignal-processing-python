@@ -278,7 +278,7 @@ def gap_correction(tk, debug):
     threshold = compute_threshold(dtk)
     gaps = np.where((dtk > threshold * kupper) & (dtk > 0.5))[0]
     if not gaps:
-        return
+        return tn
     threshold_at_gap = threshold[gaps] * kupper
 
     # Gaps on first and last pulses are not allowed
@@ -289,7 +289,7 @@ def gap_correction(tk, debug):
         gaps = np.where(dtk > threshold * kupper)[0]
         threshold_at_gap = threshold[gaps] * kupper
         if not gaps:
-            return
+            return tn
     while gaps[-1] > (dtk.size - 2):
         tn[-1] = []
         dtk[-1] = []
@@ -297,7 +297,7 @@ def gap_correction(tk, debug):
         gaps = np.where(dtk > threshold * kupper)[0]
         threshold_at_gap = threshold[gaps] * kupper
         if not gaps:
-            return
+            return tn
 
     if debug:
         f, [ax1, ax2] = plt.subplots(2, 1)
@@ -306,7 +306,7 @@ def gap_correction(tk, debug):
     while gaps:
         # In each iteration, try to fill with one more sample
         for kk in range(0, gaps.size):
-            if kk == 0 & debug:
+            if kk == 0 and debug:
                 ax1.cla()
                 ax1.stem(dtn)
                 ax1.stem(gaps, dtn[gaps], 'r')
